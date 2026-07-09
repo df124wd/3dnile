@@ -6,8 +6,10 @@ import { applyRealTerrain } from './cesium/terrain'
 import { loadNile } from './cesium/nile'
 import { loadPois } from './cesium/pois'
 import { flyToSegment, loadSegments } from './cesium/segments'
-import type { Segment } from './types/data'
+import { setupPoiPicking } from './cesium/picking'
+import type { Poi, Segment } from './types/data'
 import SegmentRail from './components/SegmentRail.vue'
+import InfoPanel from './components/InfoPanel.vue'
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const ready = ref(false)
@@ -15,9 +17,12 @@ const errorMsg = ref<string | null>(null)
 const segments = ref<Segment[]>([])
 const activeId = ref<string | null>(null)
 const terrainOn = ref(false)
+const selectedPoi = ref<Poi | null>(null)
 
 const viewerRef = shallowRef<Cesium.Viewer | null>(null)
 const segmentMap = new Map<string, Segment>()
+const poiMap = new Map<string, Poi>()
+let disposePicking: (() => void) | null = null
 
 onMounted(async () => {
   try {
@@ -26,7 +31,10 @@ onMounted(async () => {
     viewerRef.value = viewer
 
     await loadNile(viewer)
-    await loadPois(viewer)
+    const { pois } = await loadPois(viewer)
+    for (const p of pois) poiMap.set(p.id, p)
+
+    disposePicking = setupPoiPicking(viewer, onPoiSelect)
 
     const segs = await loadSegments()
     segments.value = segs
@@ -41,16 +49,19 @@ onMounted(async () => {
     })
 
     if (import.meta.env.DEV) {
-      // 开发期调试钩子：window.__flyTo(lon, lat, height)
-      ;(window as unknown as { __flyTo?: (lon: number, lat: number, h?: number) => void }).__flyTo = (
-        lon,
-        lat,
-        h = 150000,
-      ) =>
+      const w = window as unknown as {
+        __flyTo?: (lon: number, lat: number, h?: number) => void
+        __viewer?: Cesium.Viewer
+        __selectPoi?: (id: string | null) => void
+      }
+      // 开发期调试钩子
+      w.__flyTo = (lon, lat, h = 150000) =>
         viewer.camera.flyTo({
           destination: Cesium.Cartesian3.fromDegrees(lon, lat, h),
           duration: 0,
         })
+      w.__viewer = viewer
+      w.__selectPoi = onPoiSelect
     }
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : String(e)
@@ -64,10 +75,31 @@ function selectSegment(id: string, duration = 1.6): void {
   const viewer = viewerRef.value
   if (!seg || !viewer) return
   activeId.value = id
+  selectedPoi.value = null
   flyToSegment(viewer, seg, duration)
 }
 
+function onPoiSelect(id: string | null): void {
+  const viewer = viewerRef.value
+  if (!id) {
+    selectedPoi.value = null
+    return
+  }
+  const p = poiMap.get(id)
+  if (!p) return
+  selectedPoi.value = p
+  viewer?.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 120000),
+    duration: 1.2,
+  })
+}
+
+function closePoi(): void {
+  selectedPoi.value = null
+}
+
 onBeforeUnmount(() => {
+  disposePicking?.()
   const viewer = viewerRef.value
   if (viewer && !viewer.isDestroyed()) viewer.destroy()
   viewerRef.value = null
@@ -84,11 +116,13 @@ onBeforeUnmount(() => {
       @select="(id: string) => selectSegment(id)"
     />
 
+    <InfoPanel :poi="selectedPoi" @close="closePoi" />
+
     <div v-if="errorMsg" class="error">加载失败：{{ errorMsg }}</div>
 
     <div v-else class="hud">
       <h1>尼罗河 · 3D 模型</h1>
-      <p class="hint">左键旋转 · 右键平移 · 滚轮缩放</p>
+      <p class="hint">左键旋转 · 右键平移 · 滚轮缩放 · 点击地标查看</p>
       <p class="status">
         {{ ready ? '● 已就绪' : '○ 加载中…' }} · 地形：{{ terrainOn ? '真实高程' : '平面' }}
       </p>

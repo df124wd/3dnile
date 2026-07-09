@@ -12,8 +12,11 @@ const CATEGORY_COLOR: Record<PoiCategory, Cesium.Color> = {
 /**
  * 加载 POI 目录（public/data/pois.json），渲染彩色圆点 + 标签。
  * 标签在远距离自动隐藏（distanceDisplayCondition）以避免杂乱。
+ * 返回数据源与 POI 数组（供点击拾取映射用）。
  */
-export async function loadPois(viewer: Cesium.Viewer): Promise<Cesium.CustomDataSource> {
+export async function loadPois(
+  viewer: Cesium.Viewer,
+): Promise<{ dataSource: Cesium.CustomDataSource; pois: Poi[] }> {
   const url = `${import.meta.env.BASE_URL}data/pois.json`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`pois.json 加载失败: ${res.status}`)
@@ -51,5 +54,5 @@ export async function loadPois(viewer: Cesium.Viewer): Promise<Cesium.CustomData
     })
   }
   viewer.dataSources.add(ds)
-  return ds
+  return { dataSource: ds, pois }
 }
