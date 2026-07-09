@@ -11,6 +11,7 @@ import { applyStylization } from './cesium/stylize'
 import type { Poi, Segment } from './types/data'
 import SegmentRail from './components/SegmentRail.vue'
 import InfoPanel from './components/InfoPanel.vue'
+import Legend from './components/Legend.vue'
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const ready = ref(false)
@@ -119,6 +120,8 @@ onBeforeUnmount(() => {
     />
 
     <InfoPanel :poi="selectedPoi" @close="closePoi" />
+
+    <Legend />
 
     <div v-if="errorMsg" class="error">加载失败：{{ errorMsg }}</div>
 
