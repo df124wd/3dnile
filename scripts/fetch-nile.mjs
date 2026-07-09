@@ -1,23 +1,34 @@
 // 获取尼罗河水系真实河道几何，写成静态 GeoJSON。
-// 数据源优先级：
-//   1) OpenStreetMap Overpass（最精确，但国内常不通）
-//   2) Natural Earth 10m 河流（经 jsDelivr CDN，国内可达，精度足够区域级展示）
+// 策略：OSM Overpass 按 6 个小区域分块查询(避免大响应超时)，合并去重；
+//       全部失败时回退 Natural Earth 10m（jsDelivr CDN，国内可达）。
 // 运行：node scripts/fetch-nile.mjs
 import { writeFileSync, mkdirSync } from 'node:fs'
 
+// 已验证国内可达且返回数据的端点优先
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ]
 const NE_CANDIDATES = [
   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_10m_rivers_lake_centerlines.geojson',
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@main/geojson/ne_10m_rivers_lake_centerlines.geojson',
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_10m_rivers_lake_centerline.geojson',
 ]
 
-const NILE_RE =
-  /nile|white nile|blue nile|atbara|sobat|bahr|abay|victoria nile|albert nile|kagera/i
+const NAME_RE =
+  'Nile|White Nile|Blue Nile|Main Nile|Atbara|Atbarah|Sobat|Bahr|Victoria Nile|Albert Nile|Kagera|Abay|Jabal|النيل'
+const UA = 'nile-3d/0.1 (https://github.com/df124wd/3dnile)'
+
+// 分块(南,西,北,东)：覆盖源头/湖泊/苏德/青尼罗/苏丹主流/埃及/三角洲
+const REGIONS = [
+  [-5, 29, 4, 35],
+  [3, 29, 12, 34],
+  [9, 36, 14, 40],
+  [12, 30, 22, 34],
+  [21, 29, 32, 33],
+  [29, 29, 32, 32],
+]
 
 async function fetchJson(url, { timeout = 60000, post } = {}) {
   const controller = new AbortController()
@@ -26,8 +37,8 @@ async function fetchJson(url, { timeout = 60000, post } = {}) {
     const res = await fetch(url, {
       method: post ? 'POST' : 'GET',
       headers: post
-        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-        : { Accept: 'application/json' },
+        ? { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA }
+        : { Accept: 'application/json', 'User-Agent': UA },
       body: post ? 'data=' + encodeURIComponent(post) : undefined,
       signal: controller.signal,
     })
@@ -38,36 +49,47 @@ async function fetchJson(url, { timeout = 60000, post } = {}) {
   }
 }
 
-async function fromOverpass() {
-  const NAME_RE =
-    'Nile|White Nile|Blue Nile|Abay|Atbara|Atbara River|Sobat|Bahr|Victoria Nile|Albert Nile|Main Nile'
-  const query = `
-[out:json][timeout:120];
+async function queryRegion(bbox) {
+  const [s, w, n, e] = bbox
+  const q = `
+[out:json][timeout:60];
 (
-  way["waterway"="river"]["name"~"^(${NAME_RE})$",i](0,28,33,40);
-  way["waterway"="river"]["name:en"~"^(${NAME_RE})$",i](0,28,33,40);
+  way["waterway"~"river|stream"]["name"~"(${NAME_RE})",i](${s},${w},${n},${e});
+  way["waterway"~"river|stream"]["name:en"~"(${NAME_RE})",i](${s},${w},${n},${e});
 );
 out geom;`
   for (const url of OVERPASS_ENDPOINTS) {
     try {
-      console.log('→ Overpass:', url)
-      const json = await fetchJson(url, { post: query, timeout: 45000 })
-      const features = (json.elements ?? [])
-        .filter((e) => e.type === 'way' && Array.isArray(e.geometry) && e.geometry.length > 1)
-        .map((e) => ({
-          type: 'Feature',
-          properties: { name: e.tags?.['name:en'] ?? e.tags?.name ?? 'Nile', source: 'osm' },
-          geometry: { type: 'LineString', coordinates: e.geometry.map((p) => [p.lon, p.lat]) },
-        }))
-      if (features.length) {
-        console.log(`  ✓ OSM 返回 ${features.length} 条`)
-        return { features, source: 'OpenStreetMap' }
-      }
-    } catch (e) {
-      console.log('  失败:', e.message)
+      const json = await fetchJson(url, { post: q, timeout: 60000 })
+      return (json.elements ?? []).filter(
+        (x) => x.type === 'way' && Array.isArray(x.geometry) && x.geometry.length > 1,
+      )
+    } catch {
+      // 下一个端点
     }
   }
-  return null
+  return []
+}
+
+async function fromOverpass() {
+  const seen = new Map()
+  let okRegions = 0
+  for (const bbox of REGIONS) {
+    const ways = await queryRegion(bbox)
+    console.log(`→ 分块 [${bbox.join(',')}]  命中 ${ways.length} 条`)
+    if (ways.length) okRegions++
+    for (const el of ways) {
+      if (seen.has(el.id)) continue
+      seen.set(el.id, {
+        type: 'Feature',
+        properties: { name: el.tags?.['name:en'] ?? el.tags?.name ?? 'Nile', source: 'osm' },
+        geometry: { type: 'LineString', coordinates: el.geometry.map((p) => [p.lon, p.lat]) },
+      })
+    }
+  }
+  if (seen.size === 0) return null
+  console.log(`OSM 合计 ${seen.size} 条 way（${okRegions}/${REGIONS.length} 区域成功）`)
+  return { features: [...seen.values()], source: 'OpenStreetMap' }
 }
 
 async function fromNaturalEarth() {
@@ -75,25 +97,18 @@ async function fromNaturalEarth() {
     try {
       console.log('→ Natural Earth:', url)
       const fc = await fetchJson(url, { timeout: 90000 })
-      const all = fc.features ?? []
-      const features = all
+      const features = (fc.features ?? [])
         .filter((f) => {
           const p = f.properties ?? {}
           const nm = [p.name, p.name_en, p.name_alt].filter(Boolean).join(' | ')
-          return NILE_RE.test(nm)
+          return /nile|white nile|blue nile|atbara|sobat|bahr|abay|victoria nile|albert nile|kagera/i.test(nm)
         })
         .map((f) => ({
           type: 'Feature',
-          properties: {
-            name: f.properties?.name_en || f.properties?.name || 'Nile',
-            source: 'natural-earth',
-          },
+          properties: { name: f.properties?.name_en || f.properties?.name || 'Nile', source: 'natural-earth' },
           geometry: f.geometry,
         }))
-      if (features.length) {
-        console.log(`  ✓ Natural Earth 命中 ${features.length} / ${all.length} 条`)
-        return { features, source: 'Natural Earth' }
-      }
+      if (features.length) return { features, source: 'Natural Earth' }
     } catch (e) {
       console.log('  失败:', e.message)
     }
@@ -109,23 +124,16 @@ if (!result) {
 
 const { features, source } = result
 mkdirSync('public/data', { recursive: true })
-writeFileSync(
-  'public/data/nile.geojson',
-  JSON.stringify({ type: 'FeatureCollection', features }, null, 2),
-)
+writeFileSync('public/data/nile.geojson', JSON.stringify({ type: 'FeatureCollection', features }, null, 2))
 
-// 统计
 const names = {}
-let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180, points = 0
+let points = 0
 for (const f of features) {
   names[f.properties.name] = (names[f.properties.name] ?? 0) + 1
-  for (const [lon, lat] of f.geometry.coordinates) {
-    minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat)
-    minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon)
-    points++
-  }
+  const c = f.geometry.coordinates
+  if (f.geometry.type === 'MultiLineString') points += c.reduce((n, l) => n + l.length, 0)
+  else if (f.geometry.type === 'LineString') points += c.length
 }
 console.log(`\n✅ 数据源：${source}`)
-console.log(`✅ 写入 ${features.length} 条 LineString，共 ${points} 个点 → public/data/nile.geojson`)
-console.log('范围:', `[${minLon.toFixed(2)}, ${minLat.toFixed(2)}] → [${maxLon.toFixed(2)}, ${maxLat.toFixed(2)}]`)
+console.log(`✅ 写入 ${features.length} 条 → public/data/nile.geojson，共 ${points} 个点`)
 console.log('名称分布:', JSON.stringify(names))
