@@ -1,5 +1,9 @@
 import * as Cesium from 'cesium'
 
+// 可选：通过 VITE_CESIUM_TOKEN 注入 Cesium Ion token，启用真实高程地形
+const cesiumToken = import.meta.env.VITE_CESIUM_TOKEN
+if (cesiumToken) Cesium.Ion.defaultAccessToken = cesiumToken
+
 /**
  * 免 token 卫星影像底图：Esri World Imagery。
  * 不依赖 Cesium Ion，长期公开链接稳定。
@@ -17,7 +21,7 @@ function createBaseImagery(): Cesium.ImageryLayer {
 /**
  * 创建 Cesium Viewer。
  * - 影像：Esri World Imagery（免 token）
- * - 地形：默认椭球（平面，免 token）；真实高程地形留待阶段 1 接入
+ * - 地形：默认椭球（平面）；真实地形由 terrain.ts 在后台尝试覆盖
  * - 界面：关闭多余控件，保留缩放/平移/旋转交互
  */
 export function createCesiumViewer(container: string | HTMLElement): Cesium.Viewer {
@@ -33,7 +37,6 @@ export function createCesiumViewer(container: string | HTMLElement): Cesium.View
     fullscreenButton: false,
     infoBox: false,
     selectionIndicator: false,
-    // 不指定 terrain → 默认 EllipsoidTerrainProvider（免 token）
   })
 
   const scene = viewer.scene
@@ -41,9 +44,9 @@ export function createCesiumViewer(container: string | HTMLElement): Cesium.View
   scene.skyAtmosphere.show = true
   scene.fog.enabled = true
 
-  // 初始视角：埃及尼罗河段（开罗 → 阿斯旺）
+  // 初始视角：尼罗河全流域（分段切换会覆盖此视角）
   viewer.camera.setView({
-    destination: Cesium.Rectangle.fromDegrees(29.0, 22.0, 34.0, 32.5),
+    destination: Cesium.Rectangle.fromDegrees(28, -3, 39, 32),
   })
 
   return viewer

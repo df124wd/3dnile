@@ -1,0 +1,24 @@
+[
+  { "id": "cairo", "name": "开罗", "nameEn": "Cairo", "category": "city", "lon": 31.235, "lat": 30.044 },
+  { "id": "giza", "name": "吉萨金字塔", "nameEn": "Pyramids of Giza", "category": "landmark", "lon": 31.134, "lat": 29.979 },
+  { "id": "alexandria", "name": "亚历山大", "nameEn": "Alexandria", "category": "city", "lon": 29.919, "lat": 31.201 },
+  { "id": "luxor", "name": "卢克索", "nameEn": "Luxor", "category": "landmark", "lon": 32.64, "lat": 25.687 },
+  { "id": "karnak", "name": "卡纳克神庙", "nameEn": "Karnak Temple", "category": "landmark", "lon": 32.657, "lat": 25.719 },
+  { "id": "valley-kings", "name": "帝王谷", "nameEn": "Valley of the Kings", "category": "landmark", "lon": 32.601, "lat": 25.74 },
+  { "id": "aswan-city", "name": "阿斯旺", "nameEn": "Aswan", "category": "city", "lon": 32.899, "lat": 24.087 },
+  { "id": "khartoum", "name": "喀土穆", "nameEn": "Khartoum", "category": "city", "lon": 32.559, "lat": 15.501 },
+  { "id": "juba", "name": "朱巴", "nameEn": "Juba", "category": "city", "lon": 31.6, "lat": 4.85 },
+  { "id": "wadi-halfa", "name": "瓦迪哈勒法", "nameEn": "Wadi Halfa", "category": "city", "lon": 32.88, "lat": 22.2 },
+
+  { "id": "aswan-dam", "name": "阿斯旺高坝", "nameEn": "Aswan High Dam", "category": "engineering", "lon": 32.877, "lat": 23.976 },
+
+  { "id": "lake-victoria", "name": "维多利亚湖", "nameEn": "Lake Victoria", "category": "water", "lon": 33.0, "lat": -1.0 },
+  { "id": "lake-tana", "name": "塔纳湖", "nameEn": "Lake Tana", "category": "water", "lon": 37.38, "lat": 11.6 },
+  { "id": "lake-albert", "name": "艾伯特湖", "nameEn": "Lake Albert", "category": "water", "lon": 30.95, "lat": 1.68 },
+  { "id": "lake-nasser", "name": "纳赛尔湖", "nameEn": "Lake Nasser", "category": "water", "lon": 32.3, "lat": 22.3 },
+  { "id": "white-nile", "name": "白尼罗河", "nameEn": "White Nile", "category": "water", "lon": 31.6, "lat": 6.0 },
+  { "id": "blue-nile", "name": "青尼罗河", "nameEn": "Blue Nile", "category": "water", "lon": 37.0, "lat": 12.2 },
+  { "id": "atbara", "name": "阿特巴拉河", "nameEn": "Atbara River", "category": "water", "lon": 33.95, "lat": 17.66 },
+  { "id": "sobat", "name": "索巴特河", "nameEn": "Sobat River", "category": "water", "lon": 32.5, "lat": 9.0 },
+  { "id": "sudd", "name": "苏德沼泽", "nameEn": "Sudd", "category": "water", "lon": 30.5, "lat": 7.5 }
+]
