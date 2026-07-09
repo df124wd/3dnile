@@ -7,6 +7,7 @@ import { loadNile } from './cesium/nile'
 import { loadPois } from './cesium/pois'
 import { flyToSegment, loadSegments } from './cesium/segments'
 import { setupPoiPicking } from './cesium/picking'
+import { applyStylization } from './cesium/stylize'
 import type { Poi, Segment } from './types/data'
 import SegmentRail from './components/SegmentRail.vue'
 import InfoPanel from './components/InfoPanel.vue'
@@ -29,6 +30,7 @@ onMounted(async () => {
     if (!containerRef.value) throw new Error('地图容器未找到')
     const viewer = createCesiumViewer(containerRef.value)
     viewerRef.value = viewer
+    applyStylization(viewer)
 
     await loadNile(viewer)
     const { pois } = await loadPois(viewer)
