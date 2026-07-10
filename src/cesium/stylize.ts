@@ -47,16 +47,17 @@ export function applyStylization(viewer: Cesium.Viewer): void {
     console.warn('[Nile3D] colorGrade 已存在或不可用，跳过', e)
   }
 
-  try {
-    const bloom = stages.add(Cesium.PostProcessStageLibrary.createBloomStage())
-    // contrast 合理范围 1-10，120 会导致画面严重柔化发糊
-    bloom.uniforms.contrast = 4
-    bloom.uniforms.brightness = -0.05
-    bloom.uniforms.glowOnly = false
-    bloom.uniforms.delta = 1.0
-    bloom.uniforms.sigma = 1.5
-    bloom.uniforms.stepSize = 2
-  } catch (e) {
-    console.warn('[Nile3D] bloom 已存在或不可用，跳过', e)
-  }
+  // bloom 暂时禁用：Cesium bloom 后处理在部分 GPU/WebGL 环境下会导致整体画面柔化发糊，
+  // 待确认根因后可重新启用并微调参数
+  // try {
+  //   const bloom = stages.add(Cesium.PostProcessStageLibrary.createBloomStage())
+  //   bloom.uniforms.contrast = 128   // Cesium 默认值
+  //   bloom.uniforms.brightness = -0.3 // Cesium 默认值
+  //   bloom.uniforms.glowOnly = false
+  //   bloom.uniforms.delta = 1.0
+  //   bloom.uniforms.sigma = 3.0
+  //   bloom.uniforms.stepSize = 5
+  // } catch (e) {
+  //   console.warn('[Nile3D] bloom 已存在或不可用，跳过', e)
+  // }
 }
