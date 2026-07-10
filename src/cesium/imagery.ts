@@ -5,7 +5,7 @@ import * as Cesium from 'cesium'
  * 留空 → 回退 Esri World Imagery（全球覆盖好，但服务器在海外，国内冷启动较慢）。
  * 静态站点为客户端取瓦片，tk 会出现在前端，属天地图免费开发密钥的常规用法。
  */
-export const TIANDITU_TK = ''
+export const TIANDITU_TK = '6af9e984f1e2b09622602a35069fe326'
 
 export interface BaseImageryResult {
   baseLayer: Cesium.ImageryLayer
