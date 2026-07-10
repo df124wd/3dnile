@@ -1,11 +1,12 @@
 import * as Cesium from 'cesium'
 
 /**
- * 天地图 token：在 https://console.tianditu.gov.cn 免费申请（选"浏览器端"类型）。
- * 留空 → 回退 Esri World Imagery（全球覆盖好，但服务器在海外，国内冷启动较慢）。
- * 静态站点为客户端取瓦片，tk 会出现在前端，属天地图免费开发密钥的常规用法。
+ * 天地图 token（https://console.tianditu.gov.cn 免费申请）。
+ * 注：天地图国内加载快，但**海外（尼罗河所在）影像分辨率偏低**，故默认用 Esri 高分影像；
+ * 仅当设置环境变量 VITE_USE_TIANDITU=1 时启用天地图（含中文地名注记）。
  */
 export const TIANDITU_TK = '6af9e984f1e2b09622602a35069fe326'
+const USE_TIANDITU = import.meta.env.VITE_USE_TIANDITU === '1'
 
 export interface BaseImageryResult {
   baseLayer: Cesium.ImageryLayer
@@ -22,13 +23,14 @@ function tianditu(layer: string): Cesium.UrlTemplateImageryProvider {
 }
 
 /**
- * 构造底图：天地图优先（影像 img_w + 中文注记 cia_w）；无 token 回退 Esri。
+ * 底图：默认 Esri World Imagery（全球高分，含尼罗河高分辨率）；
+ * VITE_USE_TIANDITU=1 时改用天地图（国内快 + 中文注记，但海外分辨率较低）。
  */
 export function createBaseImagery(): BaseImageryResult {
-  if (TIANDITU_TK) {
+  if (USE_TIANDITU && TIANDITU_TK) {
     return {
       baseLayer: new Cesium.ImageryLayer(tianditu('img_w')),
-      overlayProviders: [tianditu('cia_w')], // 影像注记：中文地名
+      overlayProviders: [tianditu('cia_w')],
     }
   }
   const esri = new Cesium.UrlTemplateImageryProvider({

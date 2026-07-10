@@ -12,7 +12,7 @@ export async function applyRealTerrain(viewer: Cesium.Viewer): Promise<boolean> 
     requestWaterMask: true,
   })
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('terrain load timeout')), 8000),
+    setTimeout(() => reject(new Error('terrain load timeout')), 15000),
   )
   try {
     const provider = await Promise.race([load, timeout])
