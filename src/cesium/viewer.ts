@@ -1,32 +1,20 @@
 import * as Cesium from 'cesium'
+import { createBaseImagery } from './imagery'
 
 // 可选：通过 VITE_CESIUM_TOKEN 注入 Cesium Ion token，启用真实高程地形
 const cesiumToken = import.meta.env.VITE_CESIUM_TOKEN
 if (cesiumToken) Cesium.Ion.defaultAccessToken = cesiumToken
 
 /**
- * 免 token 卫星影像底图：Esri World Imagery。
- * 不依赖 Cesium Ion，长期公开链接稳定。
- */
-function createBaseImagery(): Cesium.ImageryLayer {
-  const provider = new Cesium.UrlTemplateImageryProvider({
-    url:
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    maximumLevel: 19,
-    credit: 'Esri, Maxar, Earthstar Geographics',
-  })
-  return new Cesium.ImageryLayer(provider)
-}
-
-/**
  * 创建 Cesium Viewer。
- * - 影像：Esri World Imagery（免 token）
+ * - 影像：天地图（国内快，见 imagery.ts）或 Esri 回退
  * - 地形：默认椭球（平面）；真实地形由 terrain.ts 在后台尝试覆盖
  * - 界面：关闭多余控件，保留缩放/平移/旋转交互
  */
 export function createCesiumViewer(container: string | HTMLElement): Cesium.Viewer {
+  const { baseLayer, overlayProviders } = createBaseImagery()
   const viewer = new Cesium.Viewer(container, {
-    baseLayer: createBaseImagery(),
+    baseLayer,
     baseLayerPicker: false,
     geocoder: false,
     homeButton: false,
@@ -38,6 +26,11 @@ export function createCesiumViewer(container: string | HTMLElement): Cesium.View
     infoBox: false,
     selectionIndicator: false,
   })
+
+  // 叠加中文地名注记层（仅天地图）
+  for (const provider of overlayProviders) {
+    viewer.imageryLayers.addImageryProvider(provider)
+  }
 
   const scene = viewer.scene
   scene.globe.enableLighting = false
