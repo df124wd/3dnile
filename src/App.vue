@@ -20,6 +20,7 @@ const segments = ref<Segment[]>([])
 const activeId = ref<string | null>(null)
 const terrainOn = ref(false)
 const selectedPoi = ref<Poi | null>(null)
+const tilesLoading = ref(true)
 
 const viewerRef = shallowRef<Cesium.Viewer | null>(null)
 const segmentMap = new Map<string, Segment>()
@@ -32,6 +33,11 @@ onMounted(async () => {
     const viewer = createCesiumViewer(containerRef.value)
     viewerRef.value = viewer
     applyStylization(viewer)
+
+    // 卫星影像瓦片加载进度：未归零时显示"加载中"
+    viewer.scene.globe.tileLoadProgressEvent.addEventListener((queued: number) => {
+      tilesLoading.value = queued > 0
+    })
 
     await loadNile(viewer)
     const { pois } = await loadPois(viewer)
@@ -132,6 +138,11 @@ onBeforeUnmount(() => {
         {{ ready ? '● 已就绪' : '○ 加载中…' }} · 地形：{{ terrainOn ? '真实高程' : '平面' }}
       </p>
     </div>
+
+    <div v-if="tilesLoading" class="loading">
+      <div class="spinner" />
+      <span>卫星影像加载中…</span>
+    </div>
   </div>
 </template>
 
@@ -187,5 +198,38 @@ onBeforeUnmount(() => {
   border: 1px solid #5a1a24;
   border-radius: 6px;
   max-width: 360px;
+}
+
+.loading {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: rgba(8, 12, 20, 0.82);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 999px;
+  color: #cfe3f5;
+  font-size: 13px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #22d3ee;
+  border-radius: 50%;
+  animation: nile-spin 0.8s linear infinite;
+}
+
+@keyframes nile-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
