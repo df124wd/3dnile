@@ -25,6 +25,9 @@ export function createCesiumViewer(container: string | HTMLElement): Cesium.View
     fullscreenButton: false,
     infoBox: false,
     selectionIndicator: false,
+    // 按 devicePixelRatio 全分辨率渲染，避免 HiDPI 屏（如 150% 缩放）画面发糊
+    // ⚠️ 此属性属于 Viewer/CesiumWidget，不是 Scene！
+    useBrowserRecommendedResolution: false,
   })
 
   // 叠加中文地名注记层（仅天地图）
@@ -36,9 +39,6 @@ export function createCesiumViewer(container: string | HTMLElement): Cesium.View
   scene.globe.enableLighting = false
   scene.skyAtmosphere.show = true
   scene.fog.enabled = true
-  // 按 devicePixelRatio 全分辨率渲染，避免 HiDPI 屏（如 150% 缩放）画面发糊
-  scene.useBrowserRecommendedResolution = false
-  viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 2)
 
   // 初始视角：尼罗河全流域（分段切换会覆盖此视角）
   viewer.camera.setView({

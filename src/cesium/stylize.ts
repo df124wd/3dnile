@@ -49,12 +49,13 @@ export function applyStylization(viewer: Cesium.Viewer): void {
 
   try {
     const bloom = stages.add(Cesium.PostProcessStageLibrary.createBloomStage())
-    bloom.uniforms.contrast = 120
-    bloom.uniforms.brightness = -0.1
+    // contrast 合理范围 1-10，120 会导致画面严重柔化发糊
+    bloom.uniforms.contrast = 4
+    bloom.uniforms.brightness = -0.05
     bloom.uniforms.glowOnly = false
-    bloom.uniforms.delta = 0.1
-    bloom.uniforms.sigma = 3.5
-    bloom.uniforms.stepSize = 5
+    bloom.uniforms.delta = 1.0
+    bloom.uniforms.sigma = 1.5
+    bloom.uniforms.stepSize = 2
   } catch (e) {
     console.warn('[Nile3D] bloom 已存在或不可用，跳过', e)
   }
