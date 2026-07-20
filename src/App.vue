@@ -30,7 +30,7 @@ let disposePicking: (() => void) | null = null
 onMounted(async () => {
   try {
     if (!containerRef.value) throw new Error('地图容器未找到')
-    const viewer = createCesiumViewer(containerRef.value)
+    const viewer = await createCesiumViewer(containerRef.value)
     viewerRef.value = viewer
     applyStylization(viewer)
 

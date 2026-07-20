@@ -6,13 +6,15 @@ const cesiumToken = import.meta.env.VITE_CESIUM_TOKEN
 if (cesiumToken) Cesium.Ion.defaultAccessToken = cesiumToken
 
 /**
- * 创建 Cesium Viewer。
- * - 影像：天地图（国内快，见 imagery.ts）或 Esri 回退
+ * 创建 Cesium Viewer（异步，因影像加载需要 await）。
+ * - 影像：Esri World Imagery（CORS 友好） → 天地图 → OSM 多级回退
  * - 地形：默认椭球（平面）；真实地形由 terrain.ts 在后台尝试覆盖
  * - 界面：关闭多余控件，保留缩放/平移/旋转交互
  */
-export function createCesiumViewer(container: string | HTMLElement): Cesium.Viewer {
-  const { baseLayer, overlayProviders } = createBaseImagery()
+export async function createCesiumViewer(
+  container: string | HTMLElement,
+): Promise<Cesium.Viewer> {
+  const { baseLayer, overlayProviders } = await createBaseImagery()
   const viewer = new Cesium.Viewer(container, {
     baseLayer,
     baseLayerPicker: false,
