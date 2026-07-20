@@ -28,9 +28,9 @@ export function createCesiumViewer(container: string | HTMLElement): Cesium.View
     // 按 devicePixelRatio 全分辨率渲染，避免 HiDPI 屏（如 150% 缩放）画面发糊
     // ⚠️ 此属性属于 Viewer/CesiumWidget，不是 Scene！
     useBrowserRecommendedResolution: false,
-    // 按需渲染（仅交互/数据变化时重绘），大幅降低 GPU 功耗，避免卡顿
+    // 按需渲染（瓦片加载/交互/动画时自动重绘），降低 GPU 功耗
     requestRenderMode: true,
-    maximumRenderTimeChange: Infinity,
+    maximumRenderTimeChange: 0,
   })
 
   // 叠加中文地名注记层（仅天地图）
