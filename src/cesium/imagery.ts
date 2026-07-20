@@ -2,7 +2,6 @@ import * as Cesium from 'cesium'
 
 /**
  * 天地图 token（https://console.tianditu.gov.cn 免费申请）。
- * 注：天地图国内加载快，但**海外（尼罗河所在）影像分辨率偏低**。
  */
 export const TIANDITU_TK = '6af9e984f1e2b09622602a35069fe326'
 const USE_TIANDITU = import.meta.env.VITE_USE_TIANDITU === '1'
@@ -21,61 +20,79 @@ function tianditu(layer: string): Cesium.UrlTemplateImageryProvider {
   })
 }
 
-function tiandituImagery(): BaseImageryResult {
-  return {
-    baseLayer: new Cesium.ImageryLayer(tianditu('img_w')),
-    overlayProviders: [tianditu('cia_w')],
-  }
-}
-
-function osmImagery(): BaseImageryResult {
-  const osm = new Cesium.OpenStreetMapImageryProvider({
-    url: 'https://tile.openstreetmap.org/',
+/**
+ * 探测瓦片 URL 是否可达（通过 Image 标签测试，绕过 CORS）。
+ * 超时 6 秒返回 false。
+ */
+function probeTile(url: string, timeoutMs = 6000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const timer = setTimeout(() => {
+      img.src = ''
+      resolve(false)
+    }, timeoutMs)
+    img.onload = () => {
+      clearTimeout(timer)
+      resolve(true)
+    }
+    img.onerror = () => {
+      clearTimeout(timer)
+      resolve(false)
+    }
+    img.src = url
   })
-  return { baseLayer: new Cesium.ImageryLayer(osm), overlayProviders: [] }
 }
 
 /**
- * 异步创建底图影像（Cesium 1.143 推荐方式）。
+ * 异步创建底图影像，带瓦片可达性探测。
  *
  * 优先级：
- *  1. ArcGisMapServerImageryProvider（官方 API，CORS 友好）
- *  2. UrlTemplateImageryProvider（旧式 tile URL，可能被 CORS 拦截）
- *  3. OpenStreetMap（兜底，全球可达）
- *
- * VITE_USE_TIANDITU=1 时改用天地图（国内快 + 中文注记，但海外分辨率较低）。
+ *  1. Esri UrlTemplateImageryProvider（探测瓦片可达 → 使用）
+ *  2. 天地图（探测瓦片可达 → 使用）
+ *  3. OpenStreetMap（兜底，全球可达，无需探测）
  */
 export async function createBaseImagery(): Promise<BaseImageryResult> {
   // ── 天地图（显式指定） ──
   if (USE_TIANDITU && TIANDITU_TK) {
-    return tiandituImagery()
+    return {
+      baseLayer: new Cesium.ImageryLayer(tianditu('img_w')),
+      overlayProviders: [tianditu('cia_w')],
+    }
   }
 
-  // ── 方式 1：ArcGisMapServerImageryProvider（Cesium 1.143 推荐） ──
-  try {
-    const provider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-    )
-    console.log('[Nile3D] ✓ Esri ArcGisMapServer 影像加载成功')
-    return { baseLayer: new Cesium.ImageryLayer(provider), overlayProviders: [] }
-  } catch (e) {
-    console.warn('[Nile3D] Esri ArcGisMapServer 不可用，尝试旧式 UrlTemplate…', e)
-  }
-
-  // ── 方式 2：UrlTemplateImageryProvider（旧式 tile URL） ──
-  try {
+  // ── 方式 1：探测 Esri 瓦片是否可达 ──
+  const esriTileTest =
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/2/1/1'
+  const esriOk = await probeTile(esriTileTest)
+  if (esriOk) {
+    console.log('[Nile3D] ✓ Esri 瓦片可达，使用 UrlTemplateImageryProvider')
     const esri = new Cesium.UrlTemplateImageryProvider({
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       maximumLevel: 19,
       credit: 'Esri, Maxar, Earthstar Geographics',
     })
-    console.log('[Nile3D] ✓ Esri UrlTemplate 影像加载成功')
     return { baseLayer: new Cesium.ImageryLayer(esri), overlayProviders: [] }
-  } catch (e) {
-    console.warn('[Nile3D] Esri UrlTemplate 不可用，回退 OSM…', e)
+  }
+  console.warn('[Nile3D] Esri 瓦片不可达，尝试天地图…')
+
+  // ── 方式 2：探测天地图瓦片是否可达 ──
+  if (TIANDITU_TK) {
+    const tdTileTest = `https://t0.tianditu.gov.cn/DataServer?T=img_w&x=1&y=1&l=2&tk=${TIANDITU_TK}`
+    const tdOk = await probeTile(tdTileTest)
+    if (tdOk) {
+      console.log('[Nile3D] ✓ 天地图瓦片可达')
+      return {
+        baseLayer: new Cesium.ImageryLayer(tianditu('img_w')),
+        overlayProviders: [tianditu('cia_w')],
+      }
+    }
+    console.warn('[Nile3D] 天地图瓦片不可达，回退 OSM…')
   }
 
   // ── 方式 3：OpenStreetMap 兜底 ──
-  console.log('[Nile3D] ✓ 回退到 OpenStreetMap 影像')
-  return osmImagery()
+  console.log('[Nile3D] ✓ 使用 OpenStreetMap 兜底影像')
+  const osm = new Cesium.OpenStreetMapImageryProvider({
+    url: 'https://tile.openstreetmap.org/',
+  })
+  return { baseLayer: new Cesium.ImageryLayer(osm), overlayProviders: [] }
 }
