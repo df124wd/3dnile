@@ -34,9 +34,14 @@ onMounted(async () => {
     viewerRef.value = viewer
     applyStylization(viewer)
 
-    // 卫星影像瓦片加载进度：未归零时显示"加载中"
+    // 卫星影像瓦片加载进度：节流更新，避免高频触发 Vue 响应式导致掉帧
+    let lastLoading = true
     viewer.scene.globe.tileLoadProgressEvent.addEventListener((queued: number) => {
-      tilesLoading.value = queued > 0
+      const loading = queued > 0
+      if (loading !== lastLoading) {
+        lastLoading = loading
+        tilesLoading.value = loading
+      }
     })
 
     await loadNile(viewer)
